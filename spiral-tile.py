@@ -10,14 +10,12 @@ from __future__ import division
 from skimage import exposure #only for rescaling now, maybe replace PIL completely in the future
 from itertools import cycle
 from PIL import Image # could be either pillow or PIL?
-from itertools import cycle
-from PIL import Image
 import numpy as np
 import argparse
 import logging
 import shutil
-import time
-import sys
+#import time
+#import sys
 import re
 import os
 
@@ -42,11 +40,6 @@ def nat_key(key):
     '''
     return [int(t) if t.isdigit() else t for t in re.split(r'(\d+)', key)]
 
-
-
-
-
-
 def main():
 # Main program
     parser = argparse.ArgumentParser(description='A small utility for field images ' \
@@ -57,11 +50,11 @@ def main():
         'and well string (-f, -w).\nExample usage when the images from all wells are in the '\
         'same directory:\n\npython stitch_fields.py -cr -f <field_prefix> -w <well_prefix>',
         formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('path', default='/home/joel/proj/spiral-tile/sample-images/img-test/jpg/', nargs='?',
+    parser.add_argument('path', default='/home/joel/proj/spiral-tile/sample-images/img-test/tiff', nargs='?',
         help='path to images  (default: current directory)')
     parser.add_argument('-o', '--output-format', nargs='?', default='jpeg',
         help='format for the stitched image (default: %(default)s)')
-    parser.add_argument('-i', '--input-format', nargs='?', default='jpeg',
+    parser.add_argument('-i', '--input-format', nargs='?', default='tiff', #make it only work with tiff for now, I will not use anything else...
         help='format for images to be stitched, can also be a list of formats (default: %(default)s)')
     parser.add_argument('-f', '--field-prefix', default='f',
         help='string immediately preceding the field number in the file name (default: %(default)s)')
@@ -93,7 +86,7 @@ def main():
     input_format = args.input_format.lower()
 #    input_format = set((args.input_format,)) #can add extra ext here is needed, remember to not have same as stiched
     # TODO make input case insensitive?
-    logging.basicConfig(filename='well_stitch.log',level=logging.DEBUG, format='%(message)s')
+    logging.basicConfig(filename='well_stitch.log',     level=logging.DEBUG, format='%(message)s')
     # Print out the runtime parameters and store them in a log file
     for key in vars(args): # Returns a dictionary instead of a Namespace object
         print(key +'\t', vars(args)[key])
@@ -134,9 +127,30 @@ def main():
             stitched_well = stitch_images(imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
 #            stitched_well_name = os.path.join(stitched_dir_channel, os.path.basename(dir_name) + '.' + output_format)
             stitched_channel_name = os.path.join(stitched_dir, os.path.basename(dir_name) + '-{}.{}'.format(os.path.basename(channel_dir), output_format))
-            stitched_well.save(stitched_channel_name, format=args.output_format)
+            if args.output_format.lower() == 'tiff':
+                stitched_well.save(stitched_channel_name, format=args.output_format) # This part is good. Save as 16 bit done.
+            else:
+                d# For rescaling per plate basis instead of per well basis, need to loop all images to find the in_range of the entire plate
+                stitched_well = Image.fromarray(exposure.rescale_intensity(np.array(stitched_well), in_range='image', out_range=(0,256)))
+                stitched_well = stitched_well.convert('L') # convert to uint 18 so that 
+                stitched_well.convert('L').save(stitched_channel_name, format=args.output_format)
 #                logging.info('Stitched image saved to ' + stitched_well_name + '\n')
-                
+
+
+#data = numpy.random.rand(5, 301, 219)
+#imsave('temp.tif', data)
+#
+#from libtiff import TIFF
+#tiff = TIFF.open('libtiff.tiff', mode='w')
+#tiff.write_image(ar)
+#tiff.close()
+#from skimage import exposure, img_as_ubyte
+#image = exposure.rescale_intensity(np.array(stitched_well), in_range=(0, np.percentile(np.array(stitched_well), 99.95)))
+#Image.fromarray(image).save('testing', format='tiff')
+
+#image = exposure.rescale_intensity(np.array(im), in_range=(0, np.percentile(np.array(im), 99.95)))
+#Image.fromarray(img_as_ubyte(image)).save('testing', format='tiff') 
+               
                 
 #                piral_tile(well, channel)
 #                stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):                
@@ -371,6 +385,7 @@ def find_images(dir_path, input_format, flip, field_str):
 
 
 
+
     return imgs, zeroth_field
 
 #stitch the image row by row
@@ -383,7 +398,7 @@ def stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_di
     # Create the size of the well image to be filled in
     width, height = imgs[1].size
     num = 0
-    stitched_well = Image.new('RGB', (width*arr_dim, height*arr_dim))
+    stitched_well = Image.new('I;16', (width*arr_dim, height*arr_dim))
     for row in range(0, width*arr_dim, width):
         for col in range(0, height*arr_dim, height):
             #since the image is filled by row and col instead of sprial, this
