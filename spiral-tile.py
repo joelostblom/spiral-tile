@@ -23,6 +23,7 @@ import os
 
 # Ideas
 '''
+- Parallize this will be pretty simple.
 - Remove as many options as possible, recursive well etc
 - Always sort into channels even if there is only one.
 - Only have an options for input and output formats, and whether to rescale intensities.
@@ -50,7 +51,7 @@ def main():
         'and well string (-f, -w).\nExample usage when the images from all wells are in the '\
         'same directory:\n\npython stitch_fields.py -cr -f <field_prefix> -w <well_prefix>',
         formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('path', default='/home/joel/proj/spiral-tile/sample-images/img-test/tiff', nargs='?',
+    parser.add_argument('path', default='./', nargs='?',
         help='path to images  (default: current directory)')
     parser.add_argument('-o', '--output-format', nargs='?', default='jpeg',
         help='format for the stitched image (default: %(default)s)')
@@ -130,7 +131,7 @@ def main():
             if args.output_format.lower() == 'tiff':
                 stitched_well.save(stitched_channel_name, format=args.output_format) # This part is good. Save as 16 bit done.
             else:
-                d# For rescaling per plate basis instead of per well basis, need to loop all images to find the in_range of the entire plate
+                # For rescaling per plate basis instead of per well basis, need to loop all images to find the in_range of the entire plate
                 stitched_well = Image.fromarray(exposure.rescale_intensity(np.array(stitched_well), in_range='image', out_range=(0,256)))
                 stitched_well = stitched_well.convert('L') # convert to uint 18 so that 
                 stitched_well.convert('L').save(stitched_channel_name, format=args.output_format)
@@ -375,11 +376,11 @@ def find_images(dir_path, input_format, flip, field_str):
 #            if rescale_intensity:
 #               img_stretched = exposure.rescale_intensity(np.array(imgs[fnum]), in_range='uint12', out_range=('uint8'))
 #               imgs[fnum] = Image.fromarray(np.uint8(img_stretched))
-    print(max_ints)
+#    print(max_ints) # I still need to figure out what is going on in terms of jpg and png. tiff seems to be working as of 2017/04/02.
     if max_ints != []:
        # max_ints = max(max_ints) # the highest intensity in the entire plate
         max_ints = np.percentile(np.array(max_ints), 70) # the highest intensity in the entire plate
-        print(max_ints)
+        #print(max_ints)
     return imgs, zeroth_field, max_ints
 
 
