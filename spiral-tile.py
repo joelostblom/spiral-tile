@@ -23,12 +23,12 @@ import os
 
 # Ideas
 '''
-- Parallize this will be pretty simple.
+- Parallize this will be pretty simple, although this would mess with the "sort by creation date"-functionality.
 - Remove as many options as possible, recursive well etc
 - Always sort into channels even if there is only one.
 - Only have an options for input and output formats, and whether to rescale intensities.
     - First prototype = TIFF output is no rescale and JPG or PNG ooutput rescales automatically. No options here either
-- I expects a folder with images, well-folders, and/or stitched folder. Nothing else.
+- It expects a folder with images, well-folders, and/or stitched folder. Nothing else.
 - For comparing different colors within the same well, one should be able to quickly 
   toggle between channels of a well and keep looking at the same cells, aka, one image per 
   channel in the well subfolder
@@ -151,16 +151,8 @@ def main():
 
 #image = exposure.rescale_intensity(np.array(im), in_range=(0, np.percentile(np.array(im), 99.95)))
 #Image.fromarray(img_as_ubyte(image)).save('testing', format='tiff') 
-               
-                
 #                piral_tile(well, channel)
-#                stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):                
-#                
-#                
-#                
-                
-                
-    
+#                stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):
 #            fields, arr_dim, moves, starting_point = spiral_structure(dir_name, input_format, args.scan_direction)
 #            img_layout = spiral_array(fields, arr_dim, moves, starting_point, zeroth_field)
 #            stitched_well = stitch_images(imgs, img_layout, dir_name, args.output_format, arr_dim, stitched_dir)
@@ -172,8 +164,6 @@ def main():
     os.rename('./well_stitch.log', os.path.join(stitched_dir, 'well_stitch.log'))
 
     print('\n\nStitched well images can be found in ' + stitched_dir + '.\nPlease check the log file for which images and what field layout were used to create the stitched image.\nDone.')
-
-
 
 
 def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format):
@@ -213,20 +203,20 @@ def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format)
 
 
 # Define movement function for filling in the spiral array
-def move_right(x,y):
-    return x, y +1
+def move_right(x, y):
+    return x, y + 1
 
 
-def move_down(x,y):
-    return x+1,y
+def move_down(x, y):
+    return x + 1, y
 
 
-def move_left(x,y):
-    return x,y -1
+def move_left(x, y):
+    return x, y - 1
 
 
-def move_up(x,y):
-    return x -1,y
+def move_up(x, y):
+    return x - 1, y
 
 
 def spiral_structure(dir_path, input_format, scan_direction):
@@ -389,7 +379,6 @@ def find_images(dir_path, input_format, flip, field_str):
 
     return imgs, zeroth_field
 
-#stitch the image row by row
 def stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):
     '''
     Stitch images by going row and column wise in the img_layout and look up
