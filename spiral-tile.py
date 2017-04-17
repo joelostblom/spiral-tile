@@ -127,7 +127,7 @@ def main():
             
             stitched_well = stitch_images(imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
 #            stitched_well_name = os.path.join(stitched_dir_channel, os.path.basename(dir_name) + '.' + output_format)
-            stitched_channel_name = os.path.join(stitched_dir, os.path.basename(dir_name) + '-{}.{}'.format(os.path.basename(channel_dir), output_format))
+            stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
             if args.output_format.lower() == 'tiff':
                 stitched_well.save(stitched_channel_name, format=args.output_format) # This part is good. Save as 16 bit done.
             else:
