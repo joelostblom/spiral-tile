@@ -55,11 +55,7 @@ def main():
         help='path to images  (default: current directory)')
     parser.add_argument('-o', '--output-format', nargs='?', default='jpeg',
         help='format for the stitched image (default: %(default)s)')
-    parser.add_argument('-i', '--input-format', nargs='?', default='tiff', #make it only work with tiff for now, I will not use anything else...
-        help='format for images to be stitched, can also be a list of formats (default: %(default)s)')
-    parser.add_argument('-f', '--field-prefix', default='f',
-        help='string immediately preceding the field number in the file name (default: %(default)s)')
-    parser.add_argument('-w', '--well-prefix', default='002_',
+    parser.add_argument('-w', '--well-prefix', default='001_',
         help='string immediately preceding the well id in the file name (default: %(default)s)')
     parser.add_argument('-c', '--channel-prefix', default='d',
         help='string immediately preceding the channel id in the file name (default: %(default)s)')
