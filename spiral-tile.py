@@ -4,7 +4,6 @@ Created on Thu Nov 24 10:32:07 2016
 
 @author: joel
 """
-
 import datetime
 import argparse
 import logging
@@ -22,15 +21,14 @@ import numpy as np
 #http://pythoncentral.io/how-to-rename-move-a-file-in-python/
 
 # Ideas
-'''
-- For comparing the same channel between wells. The best is probably a plate overview image
-  where all the tiled well images are stitched together in the structure of the plate (96 only for now) bonus feature
-'''
+#- For comparing the same channel between wells. The best is probably a plate overview image
+#  where all the tiled well images are stitched together in the structure of the plate (96 only for now) bonus feature
 def nat_key(key):
     '''
     A key to use with the `sorted()` function to sort naturally.
     '''
     return [int(t) if t.isdigit() else t for t in re.split(r'(\d+)', key)]
+
 
 def main():
     parser = argparse.ArgumentParser(description='A small utility for field images '
@@ -61,6 +59,8 @@ def main():
         '9 8 7\n'
         '2 1 6\n'
         '3 4 5')
+
+    # TODO make this into a function: initialize / preprcessing
     # Initialize some variables
     args = parser.parse_args()
     # PIL's image function takes 'jpeg' instead of 'jpg' as an argument, But I
@@ -72,23 +72,24 @@ def main():
     input_format = args.input_format.lower()
     logging.basicConfig(filename='well_stitch.log', level=logging.DEBUG, format='%(message)s')
     # Print out the runtime parameters and store them in a log file
-    for key in ['path', 'input_format', 'output_format', 'well_prefix', 'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']: #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
-        print('{: <20}{}'.format(key, vars(args)[key]))
-
+    #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
+    ordered_param_keys = ['path', 'input_format', 'output_format', 'well_prefix',
+        'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']
+    for param_key in ordered_param_keys:
+        print('{: <20}{}'.format(param_key, vars(args)[param_key]))
     # Create a new timestamped directory.
     timestamp = datetime.datetime.now()
     timestamp = timestamp.strftime('%Y%m%d-%H%M%S')
     stitched_dir = os.path.join(args.path, 'stitched-well-images-{}'.format(timestamp))
     os.makedirs(stitched_dir)
     logging.info('Created directory ' + os.path.join(stitched_dir))
+
+    # TODO Make this into a function: find_percentiles
     # Loop through only the well subdirectories, the current directory does not need to be
     # included as the files will already be sorted into subdirectories
     sort_wells_and_channels(args.path, args.well_prefix, args.channel_prefix, input_format)
-    #dirs = [name for name in os.listdir(args.path) if os.path.isdir(os.path.join(args.path, name))]
-    #well_dirs = [name for name in dirs if not name.startswith('stitched-wells')]
-    #channels = os.listdir(os.path.join(args.path, 'sorted-well-images', well_dirs[0]))
-    well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
     # Find channels directories in each well, in case they differ between wells
+    well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
     channels = [os.listdir(os.path.join('./', 'sorted-well-images', well_dir)) for well_dir in well_dirs]
     channels = set([ch for sub in channels for ch in sub])
     print('')
@@ -123,51 +124,35 @@ def main():
         # Channels are found for each well, just in case they would differ between wells.
         channel_dirs = iglob('./sorted-well-images/{}/*'.format(os.path.basename(dir_name)))
         channel_dirs = [channel_dir for channel_dir in channel_dirs if os.path.isdir(channel_dir)]
-        #channel_dirs = [os.path.join(args.path, 'sorted-well-images', dir_name, name) for name in os.listdir(os.path.join('sorted-well-images', dir_name)) if os.path.isdir(os.path.join(args.path, dir_name, name))]
         for channel_dir in sorted(channel_dirs):
             print(os.path.basename(channel_dir))
-            imgs, zeroth_field, max_ints = find_images(channel_dir, input_format, args.flip, args.field_prefix)
-            fields, arr_dim, moves, starting_point = spiral_structure(channel_dir, input_format, args.scan_direction)
-            img_layout = spiral_array(fields, arr_dim, moves, starting_point, zeroth_field)
-            stitched_well = stitch_images(imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
-            stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
+            imgs, zeroth_field, max_ints = find_images(
+                channel_dir, input_format, args.flip, args.field_prefix)
+            fields, arr_dim, moves, starting_point = spiral_structure(
+                channel_dir, input_format, args.scan_direction)
+            img_layout = spiral_array(
+                fields, arr_dim, moves, starting_point, zeroth_field)
+            stitched_well = stitch_images(
+                imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
+            stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(
+                os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
             # TODO Add if statement that does not rescale if the output is 16-bit
             # tiff to use for running the stitched well through cellprofiler.
             # Rescale to 8bit range (0-255)
             rescaled_stitched_well = exposure.rescale_intensity(
-                np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(channel_dir)]), out_range=(0, 2**8 -1))
+                np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(
+                channel_dir)]), out_range=(0, 2**8 -1))
             # Intensities are rescaled to an 8bit range, but the image is still
             # in 16-bit format, so would be all black if displayed
             rescaled_stitched_well = Image.fromarray(rescaled_stitched_well.astype('uint8'))
             rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
-
-
-#data = numpy.random.rand(5, 301, 219)
-#imsave('temp.tif', data)
-#
-#from libtiff import TIFF
-#tiff = TIFF.open('libtiff.tiff', mode='w')
-#tiff.write_image(ar)
-#tiff.close()
-#from skimage import exposure, img_as_ubyte
-#image = exposure.rescale_intensity(np.array(stitched_well), in_range=(0, np.percentile(np.array(stitched_well), 99.95)))
-#Image.fromarray(image).save('testing', format='tiff')
-
-#image = exposure.rescale_intensity(np.array(im), in_range=(0, np.percentile(np.array(im), 99.95)))
-#Image.fromarray(img_as_ubyte(image)).save('testing', format='tiff') 
-#                piral_tile(well, channel)
-#                stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):
-#            fields, arr_dim, moves, starting_point = spiral_structure(dir_name, input_format, args.scan_direction)
-#            img_layout = spiral_array(fields, arr_dim, moves, starting_point, zeroth_field)
-#            stitched_well = stitch_images(imgs, img_layout, dir_name, args.output_format, arr_dim, stitched_dir)
-#            stitched_well_name = os.path.join(stitched_dir, os.path.basename(dir_name) + '.' + output_format)
-#            stitched_well.save(stitched_well_name, format=args.output_format)
-#            logging.info('Stitched image saved to ' + stitched_well_name + '\n')
         else:
             logging.info('No images found in this directory\n')
-    os.rename('./well_stitch.log', os.path.join(stitched_dir, 'well_stitch.log'))
-
-    print('\n\nStitched well images can be found in ' + stitched_dir + '.\nPlease check the log file for which images and what field layout were used to create the stitched image.\nDone.')
+    log_path = os.path.join(stitched_dir, 'well_stitch.log')
+    os.rename('./well_stitch.log', log_path)
+    print('\nStitched well images saved to ' + stitched_dir +
+         '.\nLog file saved as: {}\nDone'.format(log_path))
+    return None
 
 
 def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format):
@@ -205,23 +190,16 @@ def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format)
             shutil.move(os.path.join(dir_path, fname), os.path.join(dir_path,
                 'sorted-well-images', well_name, channel_name, fname))
 #    logging.info('created well directories ' + str(set(well_names)))
-
     return None
 
 
 # Define movement function for filling in the spiral array
 def move_right(x, y):
     return x, y + 1
-
-
 def move_down(x, y):
     return x + 1, y
-
-
 def move_left(x, y):
     return x, y - 1
-
-
 def move_up(x, y):
     return x - 1, y
 
@@ -386,6 +364,7 @@ def find_images(dir_path, input_format, flip, field_str):
 
     return imgs, zeroth_field
 
+
 def stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_dir):
     '''
     Stitch images by going row and column wise in the img_layout and look up
@@ -413,6 +392,6 @@ def stitch_images(imgs, img_layout, dir_path, output_format, arr_dim, stiched_di
 
     return stitched_well
 
-# run main
+
 if __name__ == '__main__':
     main()
