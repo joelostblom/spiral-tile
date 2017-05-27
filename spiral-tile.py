@@ -5,33 +5,24 @@ Created on Thu Nov 24 10:32:07 2016
 @author: joel
 """
 
-from __future__ import print_function
-from __future__ import division
-from skimage import exposure #only for rescaling now, maybe replace PIL completely in the future
-from itertools import cycle
-from PIL import Image # could be either pillow or PIL?
-import numpy as np
+import datetime
 import argparse
 import logging
 import shutil
-#import time
-#import sys
 import re
 import os
 
-# `shutil.move` handles some edgecase in `os.rename` http://pythoncentral.io/how-to-rename-move-a-file-in-python/
+from skimage import exposure
+from itertools import cycle
+import skimage.io as io
+from glob import iglob
+from PIL import Image # Change to pillow?
+import numpy as np
+# `shutil.move` handles some edgecase in `os.rename`
+#http://pythoncentral.io/how-to-rename-move-a-file-in-python/
 
 # Ideas
 '''
-- Parallize this will be pretty simple, although this would mess with the "sort by creation date"-functionality.
-- Remove as many options as possible, recursive well etc
-- Always sort into channels even if there is only one.
-- Only have an options for input and output formats, and whether to rescale intensities.
-    - First prototype = TIFF output is no rescale and JPG or PNG ooutput rescales automatically. No options here either
-- It expects a folder with images, well-folders, and/or stitched folder. Nothing else.
-- For comparing different colors within the same well, one should be able to quickly 
-  toggle between channels of a well and keep looking at the same cells, aka, one image per 
-  channel in the well subfolder
 - For comparing the same channel between wells. The best is probably a plate overview image
   where all the tiled well images are stitched together in the structure of the plate (96 only for now) bonus feature
 '''
@@ -42,7 +33,6 @@ def nat_key(key):
     return [int(t) if t.isdigit() else t for t in re.split(r'(\d+)', key)]
 
 def main():
-# Main program
     parser = argparse.ArgumentParser(description='A small utility for field images '
         'exported from automated microscope platforms.\nStarts in the middle and '
         'stitches fields in a spiral pattern to create the well image.\n'
@@ -73,15 +63,13 @@ def main():
         '3 4 5')
     # Initialize some variables
     args = parser.parse_args()
-    # PIL's image function takes 'jpeg' instead of 'jpg' as an argument. We want to be able to
-    # specify the image format to this function while defining the image extensions as 'jpg'.
+    # PIL's image function takes 'jpeg' instead of 'jpg' as an argument, But I
+    # still prefer to write stitched image as `jpg`.
     if args.output_format.lower() == 'jpeg':
         output_format = 'jpg'
     else:
         output_format = args.output_format.lower()
     input_format = args.input_format.lower()
-#    input_format = set((args.input_format,)) #can add extra ext here is needed, remember to not have same as stiched
-    # TODO make input case insensitive?
     logging.basicConfig(filename='well_stitch.log', level=logging.DEBUG, format='%(message)s')
     # Print out the runtime parameters and store them in a log file
     for key in ['path', 'input_format', 'output_format', 'well_prefix', 'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']: #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
