@@ -70,19 +70,20 @@ def main():
     else:
         output_format = args.output_format.lower()
     input_format = args.input_format.lower()
-    logging.basicConfig(filename='well_stitch.log', level=logging.DEBUG, format='%(message)s')
+    # Create a new timestamped directory.
+    timestamp = datetime.datetime.now()
+    timestamp = timestamp.strftime('%Y%m%d-%H%M%S')
+    stitched_dir = os.path.join(args.path, 'stitched-well-images-{}'.format(timestamp))
+    os.makedirs(stitched_dir)
+    log_path = os.path.join(stitched_dir, 'well_stitch.log')
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, format='%(message)s')
+    logging.info('Created directory ' + os.path.join(stitched_dir))
     # Print out the runtime parameters and store them in a log file
     #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
     ordered_param_keys = ['path', 'input_format', 'output_format', 'well_prefix',
         'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']
     for param_key in ordered_param_keys:
         print('{: <20}{}'.format(param_key, vars(args)[param_key]))
-    # Create a new timestamped directory.
-    timestamp = datetime.datetime.now()
-    timestamp = timestamp.strftime('%Y%m%d-%H%M%S')
-    stitched_dir = os.path.join(args.path, 'stitched-well-images-{}'.format(timestamp))
-    os.makedirs(stitched_dir)
-    logging.info('Created directory ' + os.path.join(stitched_dir))
 
     # TODO Make this into a function: find_percentiles
     # Loop through only the well subdirectories, the current directory does not need to be
@@ -148,8 +149,8 @@ def main():
             rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
         else:
             logging.info('No images found in this directory\n')
-    log_path = os.path.join(stitched_dir, 'well_stitch.log')
-    os.rename('./well_stitch.log', log_path)
+    #log_path = os.path.join(stitched_dir, 'well_stitch.log')
+    #os.rename('./well_stitch.log', log_path)
     print('\nStitched well images saved to ' + stitched_dir +
          '.\nLog file saved as: {}\nDone'.format(log_path))
     return None
