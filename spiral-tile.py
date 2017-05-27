@@ -52,7 +52,7 @@ def main():
     parser.add_argument('-f', '--field-prefix', default='f',
         help='string immediately preceding the field number in the file name (default: %(default)s)')
     parser.add_argument('--flip', default='vertical', choices=['horizontal', 'vertical', 'both', 'none'], help='How to flip the image (default: %(default)s)')
-    parser.add_argument('--cutoff', default=99.9, help='Saturate intensities above this percentile. Prevents outliers from making images too dim and allows for intensity comparisons across wells. (default: %(default)s)')
+    parser.add_argument('--cutoff', default=99.99, help='Saturate intensities above this percentile. Prevents outliers from making images too dim and allows for intensity comparisons across wells. (default: %(default)s)')
     parser.add_argument('--scan-direction', default='left_down', choices=[
         'left_down', 'down_left', 'left_up', 'up_left', 'right_down',
         'down_right', 'right_up', 'up_right'], help='The directions from the 1st field to the 2nd and 3rd (default: %(default)s)\n'
@@ -106,11 +106,11 @@ def main():
         for num, img_name in enumerate(dye_img_names):
             dye_imgs[num, :, :] = io.imread(img_name)
         # Show some percentiles to give an idea of what's a suitable choice
-        percentiles = [99, 99.9, 99.99, 99.999]
+        percentiles = [99, 99.9, 99.99, 99.999, 99.9999, 100]
         dye_percentile_values = np.percentile(dye_imgs, percentiles)
 #         dye_percentiles = {x:y for x, y in zip(percentiles, dye_percentile_values)}
         # Currently the same percentile cutoff is applied to all channels
-        cutoffs[channel] = np.percentile(dye_imgs, args.cutoff)
+        cutoffs[channel] = int(np.percentile(dye_imgs, args.cutoff))
         print('Percentiles channel {}:'.format(channel))
         print("\t".join([str(perc) for perc in percentiles]))
         print("\t".join([str(int(perc)) for perc in dye_percentile_values.tolist()]))
