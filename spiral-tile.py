@@ -74,23 +74,14 @@ def main():
     # Print out the runtime parameters and store them in a log file
     for key in ['path', 'input_format', 'output_format', 'well_prefix', 'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']: #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
         print('{: <20}{}'.format(key, vars(args)[key]))
-#         print(key +'\t', vars(args)[key])
-    #----------------PARSER ABOVE------------------
-    
-    # TODO change this to append timestamp
-    # Create a new directory. Append a number if it already exists.
-    import datetime
+
+    # Create a new timestamped directory.
     timestamp = datetime.datetime.now()
     timestamp = timestamp.strftime('%Y%m%d-%H%M%S')
-    stitched_dir = os.path.join(args.path, 'stitched-wells-{}'.format(timestamp))
+    stitched_dir = os.path.join(args.path, 'stitched-well-images-{}'.format(timestamp))
     os.makedirs(stitched_dir)
-#    dir_suffix = 1
-#    while os.path.exists(stitched_dir):
-#        dir_suffix += 1
-#        stitched_dir = os.path.join(args.path, 'stitched_wells_' + str(dir_suffix))
-
     logging.info('Created directory ' + os.path.join(stitched_dir))
-    # Loop through only the well directories, the current directory does not need to be
+    # Loop through only the well subdirectories, the current directory does not need to be
     # included as the files will already be sorted into subdirectories
     sort_wells_and_channels(args.path, args.well_prefix, args.channel_prefix, input_format)
         
@@ -100,12 +91,12 @@ def main():
     well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
     channels = os.listdir(os.path.join(args.path, 'sorted-well-images', well_dirs[0]))
     print('')
+    # Compute the percentile cutoffs from all images within a channel
     cutoffs = {}
     for channel in sorted(channels):
         dye_img_names = [fname for fname in iglob('{}/**/*{}.{}'.format(
             os.path.join(args.path, 'sorted-well-images'), channel,
             input_format.upper()), recursive=True)]
-
         # Get image dimensions to preallocate array correctly
         img_res = io.imread(dye_img_names[0]).shape
         dye_imgs = np.ndarray((len(dye_img_names), img_res[0], img_res[1]), dtype='uint16')
@@ -114,9 +105,8 @@ def main():
         # Show some percentiles to give an idea of what's a suitable choice
         percentiles = [99, 99.9, 99.99, 99.999]
         dye_percentile_values = np.percentile(dye_imgs, percentiles)
-        # dye_percentiles = {x:y for x, y in zip(percentiles, dye_percentile_values)}
+#         dye_percentiles = {x:y for x, y in zip(percentiles, dye_percentile_values)}
         # Currently the same percentile cutoff is applied to all channels
-        #cutoff_percentile = np.percentile(dye_imgs, args.cutoff)
         cutoffs[channel] = np.percentile(dye_imgs, args.cutoff)
         print('Percentiles channel {}:'.format(channel))
         print("\t".join([str(perc) for perc in percentiles]))
@@ -124,35 +114,27 @@ def main():
         print('Selected cutoff is {}'.format(cutoffs[channel]))
         print('---------------------')
 
-
-    # This should only happen once per channel, but since the outer loop below is for wells it needs to be up here
-##      for file_name in os.listdir(args.path):
- #        if os.path.isdir(file_name) and not file_name.startswith('stitched'):
- #            dye_img_names = [fname for fname in iglob('{}/*.{}'.format(channel_dir, input_format.upper()), recursive=True)]
- #            os.walk
- #            print(file_name)
-
-    #dye_img_names = [fname for fname in iglob('{}/sorted_well_images/*/*.{}'.format(args.path, input_format.upper()), recursive=True)]
+    # Process images well by well
     print('')
     for num, dir_name in enumerate(sorted(well_dirs, key=nat_key), start=1):
+        print(dir_name)
         dir_name = os.path.join(args.path, dir_name)
         channel_dirs = [os.path.join(args.path, dir_name, name) for name in os.listdir(dir_name) if os.path.isdir(os.path.join(args.path, dir_name, name))]
         for channel_dir in channel_dirs:
 #            os.makedirs(stitched_dir_channel)
             print(os.path.basename(channel_dir))
-            print(channel_dir)
             imgs, zeroth_field, max_ints = find_images(channel_dir, input_format, args.flip, args.field_prefix)
             fields, arr_dim, moves, starting_point = spiral_structure(channel_dir, input_format, args.scan_direction)
             img_layout = spiral_array(fields, arr_dim, moves, starting_point, zeroth_field)
-
             stitched_well = stitch_images(imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
-#            stitched_well_name = os.path.join(stitched_dir_channel, os.path.basename(dir_name) + '.' + output_format)
             stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
-            #print(args.output_format.lower())
-            # Todo Add if statement that does not rescale if the output is 16-bit tiff to use for downstream analyses, such as running the stitched well through cellprofiler.
-            #print(channel_dir, cutoffs[os.path.basename(channel_dir)])
+            # TODO Add if statement that does not rescale if the output is 16-bit
+            # tiff to use for running the stitched well through cellprofiler.
+            # Rescale to 8bit range (0-255)
             rescaled_stitched_well = exposure.rescale_intensity(
                 np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(channel_dir)]), out_range=(0, 2**8 -1))
+            # Intensities are rescaled to an 8bit range, but the image is still
+            # in 16-bit format, so would be all black if displayed
             rescaled_stitched_well = Image.fromarray(rescaled_stitched_well.astype('uint8'))
             rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
 
@@ -187,13 +169,15 @@ def main():
 
 def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format):
     '''
-    Sort wells and channels simultaneously to avoid looping through the files twice
+    Sort images into wells and channels simultaneously to avoid looping through the files twice.
+    If the images are already sorted into folders, this will not be executed, since the if-
+    expression will not match any of the folders, just images.
     '''
-    
     well_names = []
     channel_names = []
     for fname in os.listdir(dir_path):
-        # Need to index [1:] since the index includes the 'dot', e.g. '.tif'
+        # Check if there are images in this folder
+        # Need to index [1:] since the extension includes the 'dot', e.g. '.tif'
         if os.path.splitext(fname)[1][1:].lower() == input_format:
             # Create well subfolders
             #find the well id using the provided prefix and add it to the list
@@ -215,10 +199,11 @@ def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format)
                 os.makedirs(os.path.join(dir_path, well_name, channel_name))
 #            logging.info('moving ./' + fname + ' to ./' + os.path.join(well_name, fname))
             # Move images to their respective subfolder
-            shutil.move(os.path.join(dir_path, fname), os.path.join(dir_path, well_name, channel_name, fname))
+            shutil.move(os.path.join(dir_path, fname), os.path.join(dir_path,
+                'sorted-well-images', well_name, channel_name, fname))
 #    logging.info('created well directories ' + str(set(well_names)))
 
-    return set(well_names), set(channel_names)
+    return None
 
 
 # Define movement function for filling in the spiral array
@@ -315,7 +300,7 @@ def gen_points(end, moves, starting_point):
             move = next(_moves)
             for _ in range(times_to_move):
                 if n >= end:
-                    return
+                    return None
                 pos = move(*pos)
                 n+=1
                 yield n,pos
