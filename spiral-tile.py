@@ -109,6 +109,43 @@ def main():
     dirs = [name for name in os.listdir(args.path) if os.path.isdir(os.path.join(args.path, name))]
     well_dirs = [name for name in dirs if not name.startswith('stitched-wells')]
 
+    well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
+    channels = os.listdir(os.path.join(args.path, 'sorted-well-images', well_dirs[0]))
+    print('')
+    cutoffs = {}
+    for channel in sorted(channels):
+        dye_img_names = [fname for fname in iglob('{}/**/*{}.{}'.format(
+            os.path.join(args.path, 'sorted-well-images'), channel,
+            input_format.upper()), recursive=True)]
+
+        # Get image dimensions to preallocate array correctly
+        img_res = io.imread(dye_img_names[0]).shape
+        dye_imgs = np.ndarray((len(dye_img_names), img_res[0], img_res[1]), dtype='uint16')
+        for num, img_name in enumerate(dye_img_names):
+            dye_imgs[num, :, :] = io.imread(img_name)
+        # Show some percentiles to give an idea of what's a suitable choice
+        percentiles = [99, 99.9, 99.99, 99.999]
+        dye_percentile_values = np.percentile(dye_imgs, percentiles)
+        # dye_percentiles = {x:y for x, y in zip(percentiles, dye_percentile_values)}
+        # Currently the same percentile cutoff is applied to all channels
+        #cutoff_percentile = np.percentile(dye_imgs, args.cutoff)
+        cutoffs[channel] = np.percentile(dye_imgs, args.cutoff)
+        print('Percentiles channel {}:'.format(channel))
+        print("\t".join([str(perc) for perc in percentiles]))
+        print("\t".join([str(int(perc)) for perc in dye_percentile_values.tolist()]))
+        print('Selected cutoff is {}'.format(cutoffs[channel]))
+        print('---------------------')
+
+
+    # This should only happen once per channel, but since the outer loop below is for wells it needs to be up here
+##      for file_name in os.listdir(args.path):
+ #        if os.path.isdir(file_name) and not file_name.startswith('stitched'):
+ #            dye_img_names = [fname for fname in iglob('{}/*.{}'.format(channel_dir, input_format.upper()), recursive=True)]
+ #            os.walk
+ #            print(file_name)
+
+    #dye_img_names = [fname for fname in iglob('{}/sorted_well_images/*/*.{}'.format(args.path, input_format.upper()), recursive=True)]
+    print('')
     for num, dir_name in enumerate(sorted(well_dirs, key=nat_key), start=1):
         dir_name = os.path.join(args.path, dir_name)
         channel_dirs = [os.path.join(args.path, dir_name, name) for name in os.listdir(dir_name) if os.path.isdir(os.path.join(args.path, dir_name, name))]
@@ -119,19 +156,17 @@ def main():
             imgs, zeroth_field, max_ints = find_images(channel_dir, input_format, args.flip, args.field_prefix)
             fields, arr_dim, moves, starting_point = spiral_structure(channel_dir, input_format, args.scan_direction)
             img_layout = spiral_array(fields, arr_dim, moves, starting_point, zeroth_field)
-      
-            
+
             stitched_well = stitch_images(imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
 #            stitched_well_name = os.path.join(stitched_dir_channel, os.path.basename(dir_name) + '.' + output_format)
             stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
-            if args.output_format.lower() == 'tiff':
-                stitched_well.save(stitched_channel_name, format=args.output_format) # This part is good. Save as 16 bit done.
-            else:
-                # For rescaling per plate basis instead of per well basis, need to loop all images to find the in_range of the entire plate
-                stitched_well = Image.fromarray(exposure.rescale_intensity(np.array(stitched_well), in_range='image', out_range=(0,256)))
-                stitched_well = stitched_well.convert('L') # convert to uint 18 so that 
-                stitched_well.convert('L').save(stitched_channel_name, format=args.output_format)
-#                logging.info('Stitched image saved to ' + stitched_well_name + '\n')
+            #print(args.output_format.lower())
+            # Todo Add if statement that does not rescale if the output is 16-bit tiff to use for downstream analyses, such as running the stitched well through cellprofiler.
+            #print(channel_dir, cutoffs[os.path.basename(channel_dir)])
+            rescaled_stitched_well = exposure.rescale_intensity(
+                np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(channel_dir)]), out_range=(0, 2**8 -1))
+            rescaled_stitched_well = Image.fromarray(rescaled_stitched_well.astype('uint8'))
+            rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
 
 
 #data = numpy.random.rand(5, 301, 219)
