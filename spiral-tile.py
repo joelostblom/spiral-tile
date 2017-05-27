@@ -43,36 +43,35 @@ def nat_key(key):
 
 def main():
 # Main program
-    parser = argparse.ArgumentParser(description='A small utility for field images ' \
-        'exported from automated microscope platforms.\nStarts in the middle and ' \
-        'stitches fields in a spiral pattern to create the well image.\n' \
-        'Each well and channel need to be in a separate directory. Use `-c` to sort '\
-        'images into\ndirectories automatically. Make sure to specify the correct field '\
-        'and well string (-f, -w).\nExample usage when the images from all wells are in the '\
+    parser = argparse.ArgumentParser(description='A small utility for field images '
+        'exported from automated microscope platforms.\nStarts in the middle and '
+        'stitches fields in a spiral pattern to create the well image.\n'
+        'Each well and channel need to be in a separate directory. Use `-c` to sort '
+        'images into\ndirectories automatically. Make sure to specify the correct field '
+        'and well string (-f, -w).\nExample usage when the images from all wells are in the '
         'same directory:\n\npython stitch_fields.py -cr -f <field_prefix> -w <well_prefix>',
         formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('path', default='./', nargs='?',
         help='path to images  (default: current directory)')
-    parser.add_argument('-o', '--output-format', nargs='?', default='jpeg',
+    parser.add_argument('-i', '--input-format', default='tiff',
+        help='format for images to be stitched, can also be a list of formats (default: %(default)s)')
+    parser.add_argument('-o', '--output-format', default='jpeg',
         help='format for the stitched image (default: %(default)s)')
     parser.add_argument('-w', '--well-prefix', default='001_',
         help='string immediately preceding the well id in the file name (default: %(default)s)')
     parser.add_argument('-c', '--channel-prefix', default='d',
         help='string immediately preceding the channel id in the file name (default: %(default)s)')
-    parser.add_argument('-d', '--scan-direction', nargs='?', default='left_down',
-        help='The directions from the 1st field to the 2nd and 3rd, e.g. left_down =\n' \
-        '9, 8, 7, \n' \
-        '2, 1, 6, \n' \
-        '3, 4, 5 (default: %(default)s)')
-#    parser.add_argument('-e', '--sort-wells', action='store_true',
-#        help='if all images are in the same directory, subfolders MUST be created. ' \
-#        'Can be used to only sort files if -r is omitted')
-#    parser.add_argument('-a', '--sort-channels', action='store_true',
-#        help='Create subfolders for each channel based on the specified channel prefix.')
-#    parser.add_argument('-r', '--recursive', action='store_true',
-#        help='stitch images in subdirectories')
+    parser.add_argument('-f', '--field-prefix', default='f',
+        help='string immediately preceding the field number in the file name (default: %(default)s)')
     parser.add_argument('--flip', default='vertical', choices=['horizontal', 'vertical', 'both', 'none'], help='How to flip the image (default: %(default)s)')
-    #Initialize some variables
+    parser.add_argument('--cutoff', default=99.9, help='Saturate intensities above this percentile. Prevents outliers from making images too dim and allows for intensity comparisons across wells. (default: %(default)s)')
+    parser.add_argument('--scan-direction', default='left_down', choices=[
+        'left_down', 'down_left', 'left_up', 'up_left', 'right_down',
+        'down_right', 'right_up', 'up_right'], help='The directions from the 1st field to the 2nd and 3rd (default: %(default)s)\n'
+        '9 8 7\n'
+        '2 1 6\n'
+        '3 4 5')
+    # Initialize some variables
     args = parser.parse_args()
     # PIL's image function takes 'jpeg' instead of 'jpg' as an argument. We want to be able to
     # specify the image format to this function while defining the image extensions as 'jpg'.
