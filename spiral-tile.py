@@ -84,12 +84,13 @@ def main():
     # Loop through only the well subdirectories, the current directory does not need to be
     # included as the files will already be sorted into subdirectories
     sort_wells_and_channels(args.path, args.well_prefix, args.channel_prefix, input_format)
-        
-    dirs = [name for name in os.listdir(args.path) if os.path.isdir(os.path.join(args.path, name))]
-    well_dirs = [name for name in dirs if not name.startswith('stitched-wells')]
-
+    #dirs = [name for name in os.listdir(args.path) if os.path.isdir(os.path.join(args.path, name))]
+    #well_dirs = [name for name in dirs if not name.startswith('stitched-wells')]
+    #channels = os.listdir(os.path.join(args.path, 'sorted-well-images', well_dirs[0]))
     well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
-    channels = os.listdir(os.path.join(args.path, 'sorted-well-images', well_dirs[0]))
+    # Find channels directories in each well, in case they differ between wells
+    channels = [os.listdir(os.path.join('./', 'sorted-well-images', well_dir)) for well_dir in well_dirs]
+    channels = set([ch for sub in channels for ch in sub])
     print('')
     # Compute the percentile cutoffs from all images within a channel
     cutoffs = {}
@@ -119,9 +120,11 @@ def main():
     for num, dir_name in enumerate(sorted(well_dirs, key=nat_key), start=1):
         print(dir_name)
         dir_name = os.path.join(args.path, dir_name)
-        channel_dirs = [os.path.join(args.path, dir_name, name) for name in os.listdir(dir_name) if os.path.isdir(os.path.join(args.path, dir_name, name))]
-        for channel_dir in channel_dirs:
-#            os.makedirs(stitched_dir_channel)
+        # Channels are found for each well, just in case they would differ between wells.
+        channel_dirs = iglob('./sorted-well-images/{}/*'.format(os.path.basename(dir_name)))
+        channel_dirs = [channel_dir for channel_dir in channel_dirs if os.path.isdir(channel_dir)]
+        #channel_dirs = [os.path.join(args.path, 'sorted-well-images', dir_name, name) for name in os.listdir(os.path.join('sorted-well-images', dir_name)) if os.path.isdir(os.path.join(args.path, dir_name, name))]
+        for channel_dir in sorted(channel_dirs):
             print(os.path.basename(channel_dir))
             imgs, zeroth_field, max_ints = find_images(channel_dir, input_format, args.flip, args.field_prefix)
             fields, arr_dim, moves, starting_point = spiral_structure(channel_dir, input_format, args.scan_direction)
