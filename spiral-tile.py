@@ -82,10 +82,11 @@ def main():
     input_format = args.input_format.lower()
 #    input_format = set((args.input_format,)) #can add extra ext here is needed, remember to not have same as stiched
     # TODO make input case insensitive?
-    logging.basicConfig(filename='well_stitch.log',     level=logging.DEBUG, format='%(message)s')
+    logging.basicConfig(filename='well_stitch.log', level=logging.DEBUG, format='%(message)s')
     # Print out the runtime parameters and store them in a log file
-    for key in vars(args): # Returns a dictionary instead of a Namespace object
-        print(key +'\t', vars(args)[key])
+    for key in ['path', 'input_format', 'output_format', 'well_prefix', 'channel_prefix', 'field_prefix', 'scan_direction', 'flip', 'cutoff']: #sorted(vars(args)): # Returns a dictionary instead of a Namespace object
+        print('{: <20}{}'.format(key, vars(args)[key]))
+#         print(key +'\t', vars(args)[key])
     #----------------PARSER ABOVE------------------
     
     # TODO change this to append timestamp
