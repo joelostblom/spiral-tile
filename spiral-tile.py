@@ -90,7 +90,7 @@ def main():
     sort_wells_and_channels(args.path, args.well_prefix, args.channel_prefix, input_format)
     # Find channels directories in each well, in case they differ between wells
     well_dirs = os.listdir(os.path.join(args.path, 'sorted-well-images'))
-    channels = [os.listdir(os.path.join('./', 'sorted-well-images', well_dir)) for well_dir in well_dirs]
+    channels = [os.listdir(os.path.join(args.path, 'sorted-well-images', well_dir)) for well_dir in well_dirs]
     channels = set([ch for sub in channels for ch in sub])
     print('')
     # Compute the percentile cutoffs from all images within a channel
