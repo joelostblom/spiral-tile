@@ -164,6 +164,7 @@ def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format)
     '''
     well_names = []
     channel_names = []
+    os.makedirs('sorted-well-images', exist_ok=True)
     for fname in os.listdir(dir_path):
         # Check if there are images in this folder
         # Need to index [1:] since the extension includes the 'dot', e.g. '.tif'
@@ -176,16 +177,14 @@ def sort_wells_and_channels(dir_path, well_prefix, channel_prefix, input_format)
             well_name = ''.join([char for sublist in well_name for char in sublist])
             well_names.append(well_name)
             # Create the well directory if it doesn't exist already
-            if not os.path.exists(os.path.join(dir_path, well_name)):
-                os.makedirs(os.path.join(dir_path, well_name))
+            os.makedirs(os.path.join(dir_path, 'sorted-well-images', well_name), exist_ok=True)
             # Create channel subfolders
             channel_ind = fname.index(channel_prefix) + len(channel_prefix)
             channel_name = [fname[channel_ind]]
             channel_name.append([str(int(char)) for char in fname[channel_ind+1:channel_ind+3] if char.isdigit()])
             channel_name = ''.join([char for sublist in channel_name for char in sublist])
             channel_names.append(channel_name)
-            if not os.path.exists(os.path.join(dir_path, well_name, channel_name)):
-                os.makedirs(os.path.join(dir_path, well_name, channel_name))
+            os.makedirs(os.path.join(dir_path, 'sorted-well-images', well_name, channel_name), exist_ok=True)
 #            logging.info('moving ./' + fname + ' to ./' + os.path.join(well_name, fname))
             # Move images to their respective subfolder
             shutil.move(os.path.join(dir_path, fname), os.path.join(dir_path,
