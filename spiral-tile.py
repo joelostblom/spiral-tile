@@ -31,6 +31,7 @@ def nat_key(key):
 
 
 def main():
+    print('Tiling images...')
     parser = argparse.ArgumentParser(description='A small utility for field images '
         'exported from automated microscope platforms.\nStarts in the middle and '
         'stitches fields in a spiral pattern to create the well image.\n'
@@ -42,7 +43,7 @@ def main():
     parser.add_argument('path', default='./', nargs='?',
         help='path to images  (default: current directory)')
     parser.add_argument('-i', '--input-format', default='tiff',
-        help='format for images to be stitched, can also be a list of formats (default: %(default)s)')
+        help='format for images to be stitched (default: %(default)s)')
     parser.add_argument('-o', '--output-format', default='jpeg',
         help='format for the stitched image (default: %(default)s)')
     parser.add_argument('-w', '--well-prefix', default='001_',
@@ -51,6 +52,8 @@ def main():
         help='string immediately preceding the channel id in the file name (default: %(default)s)')
     parser.add_argument('-f', '--field-prefix', default='f',
         help='string immediately preceding the field number in the file name (default: %(default)s)')
+    parser.add_argument('-r', '--rescale-8bit', default='True',
+        help='rescales to 8-bit for display purposes (default: %(default)s)')
     parser.add_argument('--flip', default='vertical', choices=['horizontal', 'vertical', 'both', 'none'], help='How to flip the image (default: %(default)s)')
     parser.add_argument('--cutoff', default=99.99, help='Saturate intensities above this percentile. Prevents outliers from making images too dim and allows for intensity comparisons across wells. (default: %(default)s)')
     parser.add_argument('--scan-direction', default='left_down', choices=[
@@ -137,16 +140,19 @@ def main():
                 imgs, img_layout, channel_dir, args.output_format, arr_dim, stitched_dir)
             stitched_channel_name = os.path.join(stitched_dir, '{}-{}.{}'.format(
                 os.path.basename(channel_dir), os.path.basename(dir_name), output_format))
-            # TODO Add if statement that does not rescale if the output is 16-bit
-            # tiff to use for running the stitched well through cellprofiler.
-            # Rescale to 8bit range (0-255)
-            rescaled_stitched_well = exposure.rescale_intensity(
-                np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(
-                channel_dir)]), out_range=(0, 2**8 -1))
-            # Intensities are rescaled to an 8bit range, but the image is still
-            # in 16-bit format, so would be all black if displayed
-            rescaled_stitched_well = Image.fromarray(rescaled_stitched_well.astype('uint8'))
-            rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
+            # Rescale for visual display
+            if args.rescale_8bit == 'True':
+                # Rescale to 8bit range (0-255)
+                rescaled_stitched_well = exposure.rescale_intensity(
+                    np.array(stitched_well), in_range=(0, cutoffs[os.path.basename(
+                    channel_dir)]), out_range=(0, 2**8 -1))
+                # Intensities are rescaled to an 8bit range, but the image is still
+                # in 16-bit format, so would be all black if displayed
+                rescaled_stitched_well = Image.fromarray(rescaled_stitched_well.astype('uint8'))
+                rescaled_stitched_well.save(stitched_channel_name, format=args.output_format)
+            else:
+                stitched_well.save(stitched_channel_name, format=args.output_format)
+        # Do not rescale to use for downstream analysis, e.g. cellprofiler
         else:
             logging.info('No images found in this directory\n')
     #log_path = os.path.join(stitched_dir, 'well_stitch.log')
